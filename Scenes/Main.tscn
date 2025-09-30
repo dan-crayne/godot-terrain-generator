@@ -1,0 +1,11 @@
+[gd_scene load_steps=3 format=3 uid="uid://ddy1kxhfnp33s"]
+
+[ext_resource type="Script" uid="uid://o8xkdryj6xpi" path="res://Scripts/HeightMapTilemap.cs" id="1_idj7w"]
+[ext_resource type="TileSet" uid="uid://b8hevy30ifapl" path="res://Sprites/Tilesets/DwarfFortressTileset.tres" id="2_idj7w"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_idj7w")
+
+[node name="TileMapLayer" type="TileMapLayer" parent="."]
+texture_filter = 1
+tile_set = ExtResource("2_idj7w")
