@@ -1,11 +1,11 @@
 [gd_scene load_steps=4 format=3 uid="uid://ddy1kxhfnp33s"]
 
-[ext_resource type="Script" uid="uid://o8xkdryj6xpi" path="res://Scripts/HeightMapTilemap.cs" id="1_idj7w"]
+[ext_resource type="Script" uid="uid://o8xkdryj6xpi" path="res://Scripts/TerrainGenerator.cs" id="1_kln2b"]
 [ext_resource type="TileSet" uid="uid://b8hevy30ifapl" path="res://Sprites/Tilesets/DwarfFortressTileset.tres" id="2_idj7w"]
 [ext_resource type="Script" uid="uid://vx4oaddns4a5" path="res://addons/Fantail-Interactive.top_down_camera/td_camera_2d.gd" id="3_kln2b"]
 
 [node name="Main" type="Node2D" node_paths=PackedStringArray("tileMapLayer")]
-script = ExtResource("1_idj7w")
+script = ExtResource("1_kln2b")
 tileMapLayer = NodePath("TileMapLayer")
 
 [node name="TileMapLayer" type="TileMapLayer" parent="."]

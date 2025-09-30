@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace PerlinNoiseLib;
 
-public partial class HeightMapTilemap : Node
+public partial class TerrainGenerator : Node
 {
     [Export]
     public TileMapLayer tileMapLayer;
