@@ -36,7 +36,9 @@ public partial class HeightMapTilemap : Node
             }
         }
         
-        CreateRivers(cellHeightMap, 15);
+        CreateRiver(cellHeightMap, 15);
+        CreateRiver(cellHeightMap, 5);
+        CreateRiver(cellHeightMap, 3);
         
         DrawHeightMap(cellHeightMap);
         
@@ -54,7 +56,7 @@ public partial class HeightMapTilemap : Node
         }
     }
 
-    private void CreateRivers(int[,] cellHeightMap, int riverWidth = 1)
+    private void CreateRiver(int[,] cellHeightMap, int riverWidth = 1)
     {
         int size = TileMapSize;
         int startX = GD.RandRange(0, size - 1);
@@ -92,6 +94,42 @@ public partial class HeightMapTilemap : Node
 
             startX = nextX;
             y = nextY;
+        }
+        
+        CreateRiverBed(cellHeightMap, riverWidth, bedWidth: 5, bedElevation: 0);
+        // CreateStreams(cellHeightMap, streamCount: 10, streamWidth: 1);
+    }
+    
+    private void CreateRiverBed(int[,] cellHeightMap, int riverWidth, int bedWidth, int bedElevation = 0)
+    {
+        int size = TileMapSize;
+        for (int x = 0; x < size; x++)
+        {
+            for (int y = 0; y < size; y++)
+            {
+                if (cellHeightMap[x, y] == -1)
+                {
+                    for (int d = 1; d <= bedWidth; d++)
+                    {
+                        for (int dx = -d; dx <= d; dx++)
+                        {
+                            for (int dy = -d; dy <= d; dy++)
+                            {
+                                int nx = x + dx;
+                                int ny = y + dy;
+                                if (Math.Abs(dx) + Math.Abs(dy) == d && nx >= 0 && nx < size && ny >= 0 && ny < size)
+                                {
+                                    if (cellHeightMap[nx, ny] != -1)
+                                    {
+                                        int slopeElevation = bedElevation + d - 1;
+                                        cellHeightMap[nx, ny] = Math.Min(cellHeightMap[nx, ny], slopeElevation);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     
