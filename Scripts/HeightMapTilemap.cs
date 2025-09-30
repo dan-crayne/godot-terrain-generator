@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace PerlinNoiseLib;
 
@@ -36,9 +37,13 @@ public partial class HeightMapTilemap : Node
             }
         }
         
-        CreateRiver(cellHeightMap, 15);
+        // create these in order from smallest to largest width so that larger rivers can overwrite smaller ones
+        CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
+        CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
         CreateRiver(cellHeightMap, 5);
-        CreateRiver(cellHeightMap, 3);
+        CreateRiver(cellHeightMap, 15);
+        
+        // CreateRiverBed(cellHeightMap, riverWidth: 15, bedWidth: 5, bedElevation: 0);
         
         DrawHeightMap(cellHeightMap);
         
@@ -56,79 +61,89 @@ public partial class HeightMapTilemap : Node
         }
     }
 
-    private void CreateRiver(int[,] cellHeightMap, int riverWidth = 1)
+    public enum RiverDirection
+    {
+        TopToBottom,
+        LeftToRight
+    }
+
+    private void CreateRiver(int[,] cellHeightMap, int riverWidth = 1, RiverDirection direction = RiverDirection.TopToBottom)
     {
         int size = TileMapSize;
-        int startX = GD.RandRange(0, size - 1);
-        int y = 0; // Start at top edge
+        int x, y;
 
-        while (y < size)
+        if (direction == RiverDirection.TopToBottom)
         {
-            // Mark river cells with specified width
-            for (int w = -riverWidth / 2; w <= riverWidth / 2; w++)
+            // Start river at a random x on the top edge
+            x = GD.RandRange(0, size - 1);
+            y = 0;
+            while (y < size)
             {
-                int rx = startX + w;
-                if (rx >= 0 && rx < size)
-                    cellHeightMap[rx, y] = -1;
-            }
-
-            // Find next step: look at down, down-left, down-right
-            int nextX = startX;
-            int nextY = y + 1;
-            int minElevation = int.MaxValue;
-
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                int nx = startX + dx;
-                int ny = y + 1;
-                if (nx >= 0 && nx < size && ny < size)
+                // Mark river cells with specified width
+                for (int w = -riverWidth / 2; w <= riverWidth / 2; w++)
                 {
-                    int elevation = cellHeightMap[nx, ny];
-                    if (elevation < minElevation)
+                    int rx = x + w;
+                    if (rx >= 0 && rx < size)
                     {
-                        minElevation = elevation;
-                        nextX = nx;
+                        int distanceFromCenter = Math.Abs(w);
+                        cellHeightMap[rx, y] = -1 - ((riverWidth / 2) - distanceFromCenter); // Deepest at center
                     }
                 }
-            }
 
-            startX = nextX;
-            y = nextY;
-        }
-        
-        CreateRiverBed(cellHeightMap, riverWidth, bedWidth: 5, bedElevation: 0);
-        // CreateStreams(cellHeightMap, streamCount: 10, streamWidth: 1);
-    }
-    
-    private void CreateRiverBed(int[,] cellHeightMap, int riverWidth, int bedWidth, int bedElevation = 0)
-    {
-        int size = TileMapSize;
-        for (int x = 0; x < size; x++)
-        {
-            for (int y = 0; y < size; y++)
-            {
-                if (cellHeightMap[x, y] == -1)
+                // Find next x position with lowest elevation in the next row
+                int nextX = x, nextY = y + 1, minElevation = int.MaxValue;
+                for (int dx = -1; dx <= 1; dx++)
                 {
-                    for (int d = 1; d <= bedWidth; d++)
+                    int nx = x + dx, ny = y + 1;
+                    if (nx >= 0 && nx < size && ny < size)
                     {
-                        for (int dx = -d; dx <= d; dx++)
+                        int elevation = cellHeightMap[nx, ny];
+                        if (elevation < minElevation)
                         {
-                            for (int dy = -d; dy <= d; dy++)
-                            {
-                                int nx = x + dx;
-                                int ny = y + dy;
-                                if (Math.Abs(dx) + Math.Abs(dy) == d && nx >= 0 && nx < size && ny >= 0 && ny < size)
-                                {
-                                    if (cellHeightMap[nx, ny] != -1)
-                                    {
-                                        int slopeElevation = bedElevation + d - 1;
-                                        cellHeightMap[nx, ny] = Math.Min(cellHeightMap[nx, ny], slopeElevation);
-                                    }
-                                }
-                            }
+                            minElevation = elevation;
+                            nextX = nx;
                         }
                     }
                 }
+                x = nextX;
+                y = nextY;
+            }
+        }
+        else // LeftToRight
+        {
+            // Start river at a random y on the left edge
+            x = 0;
+            y = GD.RandRange(0, size - 1);
+            while (x < size)
+            {
+                // Mark river cells with specified width
+                for (int w = -riverWidth / 2; w <= riverWidth / 2; w++)
+                {
+                    int ry = y + w;
+                    if (ry >= 0 && ry < size)
+                    {
+                        int distanceFromCenter = Math.Abs(w);
+                        cellHeightMap[x, ry] = -1 - ((riverWidth / 2) - distanceFromCenter); // Deepest at center
+                    }
+                }
+
+                // Find next y position with lowest elevation in the next column
+                int nextY = y, nextX = x + 1, minElevation = int.MaxValue;
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    int nx = x + 1, ny = y + dy;
+                    if (nx < size && ny >= 0 && ny < size)
+                    {
+                        int elevation = cellHeightMap[nx, ny];
+                        if (elevation < minElevation)
+                        {
+                            minElevation = elevation;
+                            nextY = ny;
+                        }
+                    }
+                }
+                x = nextX;
+                y = nextY;
             }
         }
     }
@@ -143,7 +158,9 @@ public partial class HeightMapTilemap : Node
     Vector2I TileAtlasPositionByElevation(int elevation)
     {
         if (elevation < 0)
-            return new Vector2I(7, 15); // water
+        {
+            return new Vector2I(Math.Abs(elevation), 4); // water tiles start 1 tile from left
+        }
         
         return new Vector2I(elevation, 3);
     }
