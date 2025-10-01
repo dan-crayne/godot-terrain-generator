@@ -9,7 +9,7 @@ public partial class TerrainGenerator : Node
     [Export]
     public TileMapLayer tileMapLayer;
 
-    [Export] public int TileMapSize = 256;
+    [Export] public int TileMapSize = 1024;
     
     public override void _Ready()
     {
@@ -19,20 +19,39 @@ public partial class TerrainGenerator : Node
         CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
         CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
         CreateRiver(cellHeightMap, 5);
-        CreateRiver(cellHeightMap, 15);
+        CreateRiver(cellHeightMap, 15, RiverDirection.LeftToRight);
         
         DrawHeightMap(cellHeightMap);
     }
 
     private int[,] GenerateHeightMap()
     {
+        // notes on parameters:
+        // - frequency controls the "zoom" level of the noise
+        // - fractal octaves add layers of detail
+        // - lacunarity controls the frequency multiplier for each octave
+        // - gain controls the amplitude multiplier for each octave
+        // - seed ensures reproducibility
+        
+        // notes on noise types:
+        // - ValueCubic: Smooth and continuous, good for terrain
+        // - Perlin: Classic smooth noise, good for natural patterns
+        // - Simplex: More complex, can produce more varied patterns
+        // - Cellular: Produces cell-like patterns, good for caves or islands
+        // - Value: Basic noise, can be more abrupt
+        
         var noise = new FastNoiseLite();
-        noise.SetNoiseType(FastNoiseLite.NoiseTypeEnum.SimplexSmooth);
+        noise.SetNoiseType(FastNoiseLite.NoiseTypeEnum.Simplex);
         noise.SetFrequency(0.02f);
         noise.SetFractalOctaves(4);
         noise.SetFractalLacunarity(2f);
         noise.SetFractalGain(0.5f);
-        noise.SetSeed(42);
+        noise.SetSeed((int)GD.Randi());
+        // noise.SetFrequency(0.02f);
+        // noise.SetFractalOctaves(4);
+        // noise.SetFractalLacunarity(2f);
+        // noise.SetFractalGain(0.5f);
+        // noise.SetSeed(42);
         
         var cellHeightMap = new int[TileMapSize, TileMapSize];
         
@@ -44,9 +63,10 @@ public partial class TerrainGenerator : Node
                 float noiseY = j;
                 
                 float v = noise.GetNoise2D(noiseX, noiseY);
-                var normalizedElevation = Math.Abs((int)(v * 10));
+                // var normalizedElevation = Math.Abs((int)(v * 10));
+                if (v < 0) v += 0.3f; // shove the noise up a bit so more land is above water
+                var normalizedElevation = (int)(v * 7);
                 cellHeightMap[i, j] = normalizedElevation;
-                
             }
         }
 
@@ -79,7 +99,7 @@ public partial class TerrainGenerator : Node
         if (direction == RiverDirection.TopToBottom)
         {
             // Start river at a random x on the top edge
-            x = GD.RandRange(0, size - 1);
+            x = GD.RandRange((int)(size * .50f) , (int)(size * 0.80));
             y = 0;
             while (y < size)
             {
@@ -117,7 +137,7 @@ public partial class TerrainGenerator : Node
         {
             // Start river at a random y on the left edge
             x = 0;
-            y = GD.RandRange(0, size - 1);
+            y = GD.RandRange((int)(size * .50), (int)(size * 0.80));
             while (x < size)
             {
                 // Mark river cells with specified width
