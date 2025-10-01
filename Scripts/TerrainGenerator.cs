@@ -13,13 +13,26 @@ public partial class TerrainGenerator : Node
     
     public override void _Ready()
     {
+        var cellHeightMap = GenerateHeightMap(); 
+        
+        // create these in order from smallest to largest width so that larger rivers can overwrite smaller ones
+        CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
+        CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
+        CreateRiver(cellHeightMap, 5);
+        CreateRiver(cellHeightMap, 15);
+        
+        DrawHeightMap(cellHeightMap);
+    }
+
+    private int[,] GenerateHeightMap()
+    {
         var noise = new FastNoiseLite();
-        noise.SetNoiseType(FastNoiseLite.NoiseTypeEnum.Perlin);
+        noise.SetNoiseType(FastNoiseLite.NoiseTypeEnum.SimplexSmooth);
         noise.SetFrequency(0.02f);
         noise.SetFractalOctaves(4);
         noise.SetFractalLacunarity(2f);
         noise.SetFractalGain(0.5f);
-        noise.SetSeed(983247);
+        noise.SetSeed(42);
         
         var cellHeightMap = new int[TileMapSize, TileMapSize];
         
@@ -36,17 +49,8 @@ public partial class TerrainGenerator : Node
                 
             }
         }
-        
-        // create these in order from smallest to largest width so that larger rivers can overwrite smaller ones
-        CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
-        CreateRiver(cellHeightMap, 3, RiverDirection.LeftToRight);
-        CreateRiver(cellHeightMap, 5);
-        CreateRiver(cellHeightMap, 15);
-        
-        // CreateRiverBed(cellHeightMap, riverWidth: 15, bedWidth: 5, bedElevation: 0);
-        
-        DrawHeightMap(cellHeightMap);
-        
+
+        return cellHeightMap;
     }
     
     private void DrawHeightMap(int[,] cellHeightMap)
