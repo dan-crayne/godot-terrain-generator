@@ -1,13 +1,12 @@
 using Godot;
 using System;
-using System.Collections.Generic;
 
-namespace PerlinNoiseLib;
+namespace TerrainGenerator.Scripts;
 
-public partial class TerrainGenerator : Node
+public partial class TerrainGeneratorByNoise : Node
 {
     [Export]
-    public TileMapLayer tileMapLayer;
+    public TileMapLayer TileMapLayer;
 
     [Export] public int TileMapSize = 1024;
     
@@ -80,7 +79,7 @@ public partial class TerrainGenerator : Node
             for (int y = 0; y < TileMapSize; y++)
             {
                 var tilePosition = TileAtlasPositionByElevation(cellHeightMap[x, y]);
-                tileMapLayer.SetCell(new Vector2I(x, y), 0, tilePosition);
+                TileMapLayer.SetCell(new Vector2I(x, y), 0, tilePosition);
             }
         }
     }

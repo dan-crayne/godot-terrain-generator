@@ -1,6 +1,6 @@
 ﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Terrain Generator", "Terrain Generator.csproj", "{99EC7BAB-9D67-42E7-93AE-8EFCCBACBB11}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TerrainGenerator", "TerrainGenerator.csproj", "{99EC7BAB-9D67-42E7-93AE-8EFCCBACBB11}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
