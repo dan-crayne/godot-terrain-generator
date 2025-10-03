@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using SharpVoronoiLib;
+using TerrainGenerator.Scripts.Libraries;
 
 namespace TerrainGenerator.Scripts;
 
@@ -21,6 +22,8 @@ public partial class TerrainGenerationByVoronoi : Node
         _voronoiPlane.GenerateRandomSites(NumberOfSites, PointGenerationMethod.Uniform);
         _voronoiPlane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
         _voronoiPlane.Relax(); // makes cells more uniform in size and shape
+        
+        var voronoiSearcher = new VoronoiSearcher(_voronoiPlane);
         
         // DrawVoronoiEdgesOnTileMap(_voronoiPlane);
         // DrawVoronoiSitesOnTileMap(_voronoiPlane, TileTypes.Water);
@@ -51,54 +54,22 @@ public partial class TerrainGenerationByVoronoi : Node
         
         var pathStartSite = GetRandomSiteFromList(topBorderSites);
         var pathEndSite = GetRandomSiteFromList(bottomBorderSites);
-        var pathSites = GetBreadthFirstSearchPath(pathStartSite, pathEndSite);
+        var pathSites = voronoiSearcher.GetBreadthFirstSearchPath(pathStartSite, pathEndSite);
         
         ColorInVoronoiCellsOnTileMap(leftBorderSites, TileTypes.Water, 0);
         ColorInVoronoiCellsOnTileMap(bottomBorderSites, TileTypes.Water, 0);
         // ColorInVoronoiCellsOnTileMap(topBorderSites, TileTypes.Water, 0);
         // ColorInVoronoiCellsOnTileMap(rightBorderSites, TileTypes.Water, 0);
         ColorInVoronoiCellsOnTileMap(pathSites, TileTypes.Water, 0);
-    }
-    
-    // private List<VoronoiEdge> FindEdgePathBetweenTwoPoints(VoronoiPoint startPoint, VoronoiPoint endPoint)
-    // {
-    //     
-    // }
 
-    private List<VoronoiSite> GetBreadthFirstSearchPath(VoronoiSite startSite, VoronoiSite endSite)
-    { var visited = new HashSet<VoronoiSite>();
-        var queue = new Queue<List<VoronoiSite>>();
-        queue.Enqueue(new List<VoronoiSite> { startSite });
-
-        while (queue.Count > 0)
+        var pathStartEdge = GetRandomEdgeFromList(GetRandomSiteFromList(rightBorderSites).Cell.ToList());
+        var pathEndEdge = GetRandomEdgeFromList(GetRandomSiteFromList(leftBorderSites).Cell.ToList());
+        
+        var pathEdges = voronoiSearcher.FindEdgePathBetweenTwoEdges(pathStartEdge, pathEndEdge);
+        foreach (var edge in pathEdges)
         {
-            var path = queue.Dequeue();
-            var currentSite = path.Last();
-
-            if (currentSite == endSite)
-            {
-                return path; // Return the path if the end site is reached
-            }
-
-            if (!visited.Contains(currentSite))
-            {
-                visited.Add(currentSite);
-
-                // Get neighboring sites connected by edges
-                var neighbors = currentSite.Neighbours;
-
-                foreach (var neighbor in neighbors)
-                {
-                    if (!visited.Contains(neighbor))
-                    {
-                        var newPath = new List<VoronoiSite>(path) { neighbor };
-                        queue.Enqueue(newPath);
-                    }
-                }
-            }
+            DrawEdgeLineOnTileMap(edge, TileTypes.Water);
         }
-
-        return new List<VoronoiSite>(); // Return an empty list if no path is found
     }
     
     private Dictionary<VoronoiSite, CellTypes> AssignRandomCellTypesToSites(List<VoronoiSite> voronoiSites)
@@ -197,6 +168,13 @@ public partial class TerrainGenerationByVoronoi : Node
         return voronoiSites[randomIndex];
     }
     
+    private VoronoiEdge GetRandomEdgeFromSite(VoronoiSite site)
+    {
+        var edges = site.Cell.ToList();
+        var randomIndex = GD.RandRange(0, edges.Count - 1);
+        return edges[randomIndex];
+    }
+
     private VoronoiEdge GetRandomEdgeFromList(List<VoronoiEdge> voronoiEdges)
     {
         var randomIndex = GD.RandRange(0, voronoiEdges.Count - 1);
