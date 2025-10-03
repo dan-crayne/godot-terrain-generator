@@ -10,8 +10,8 @@ namespace TerrainGenerator.Scripts;
 public partial class TerrainGenerationByVoronoi : Node
 {
     [Export] public TileMapLayer TileMapLayer;
-    [Export] public int TileMapSize = 128;
-    [Export] public int NumberOfSites = 176;
+    [Export] public int TileMapSize = 256;
+    [Export] public int NumberOfSites = 1024;
 
 
     private VoronoiPlane _voronoiPlane;
@@ -40,11 +40,20 @@ public partial class TerrainGenerationByVoronoi : Node
         _topBorderSites = _voronoiSiteHelper.FindBorderSites(_voronoiPlane.Sites, PointBorderLocation.Top);
         
         DrawSitesWithRandomTypes();
-        DrawTopAndLeftWaterBodies();
         DrawLargeRiver();
+        DrawRightAndBottomBorderSites();
+        DrawTopAndLeftWaterBodies();
         DrawSmallRiverBetweenCentroids();
+        // DrawAnotherSmallRiverUsingEdges();
     }
-
+    
+    private void DrawRightAndBottomBorderSites()
+    {
+        ColorInVoronoiCellsOnTileMap(_rightBorderSites, TileTypes.Grass, 3);
+        // var inByOneBorderSites = _voronoiSiteHelper.FindRightBorderSitesByOne();
+        // ColorInVoronoiCellsOnTileMap(inByOneBorderSites, TileTypes.Grass, 2);
+    }
+    
     private void DrawTopAndLeftWaterBodies()
     {
         ColorInVoronoiCellsOnTileMap(_leftBorderSites, TileTypes.Water, 0);
@@ -54,7 +63,7 @@ public partial class TerrainGenerationByVoronoi : Node
     private void DrawLargeRiver()
     {
         var pathStartSite = _voronoiSiteHelper.FindSiteAsPercentageFromTopLeftOfPlane(0.5f, 0.0f);
-        var pathEndSite = _voronoiSiteHelper.FindRandomSiteFromList(_topBorderSites);
+        var pathEndSite = _voronoiSiteHelper.FindSiteAsPercentageFromTopLeftOfPlane(1.0f, 0.7f);
         var pathSites = _voronoiSiteHelper.FindBfsSites(pathStartSite, pathEndSite);
 
         _largeRiverPathSites = pathSites;
@@ -66,12 +75,28 @@ public partial class TerrainGenerationByVoronoi : Node
     private void DrawSmallRiverBetweenCentroids()
     {
         var startingSite = _voronoiSiteHelper.FindRandomSiteFromList(_rightBorderSites);
-        var endingSite = _voronoiSiteHelper.FindRandomSiteFromList(_largeRiverPathSites);
-        // var sitePath = _voronoiSiteHelper.FindBfsSites(startingSite, endingSite);
         var sitePath = _voronoiSiteHelper.FindSitePathByVectorDirection(startingSite, -1f, 0f, 100);
         for (int i = 0; i < sitePath.Count - 1; i++)
         {
             var line = PointHelper.GetPointsInLineBetweenVoronoiPoints(sitePath[i].Centroid, sitePath[i + 1].Centroid);
+            foreach (var point in line)
+            {
+                var gridPosition = NormalizeToTileMapCoordinates(point);
+                TileMapLayer.SetCell(gridPosition, 0, TileAtlasPositionByType(TileTypes.Water, 0));
+            }
+        }
+    }
+
+    private void DrawAnotherSmallRiverUsingEdges()
+    {
+        var startingSite = _voronoiSiteHelper.FindRandomSiteFromList(_rightBorderSites);
+        var endingSite = _voronoiSiteHelper.FindRandomSiteFromList(_largeRiverPathSites);
+        var sitePath = _voronoiSiteHelper.FindBfsSites(startingSite, endingSite);
+       
+        var edgePath = _voronoiSiteHelper.FindEdgePathThroughSites(sitePath);
+        foreach (var edge in edgePath)
+        {
+            var line = PointHelper.GetPointsInLineBetweenVoronoiPoints(edge.Start, edge.End);
             foreach (var point in line)
             {
                 var gridPosition = NormalizeToTileMapCoordinates(point);
@@ -88,7 +113,7 @@ public partial class TerrainGenerationByVoronoi : Node
             var site = kvp.Key;
             var cellType = kvp.Value;
             TileTypes tileType;
-            int darknessLevel = (int)GD.RandRange(0, 3);
+            int darknessLevel = (int)GD.RandRange(0, 1);
             switch (cellType)
             {
                 case CellTypes.Grassland:

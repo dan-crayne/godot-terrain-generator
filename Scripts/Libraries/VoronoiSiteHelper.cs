@@ -35,6 +35,96 @@ public class VoronoiSiteHelper(VoronoiPlane voronoiPlane)
         return sites;
     }
     
+    public List<VoronoiSite> FindRightBorderSitesByOne()
+    {
+        var borderSites = FindAllBorderSitesByLocation(PointBorderLocation.Right);
+        var resultSites = new List<VoronoiSite>();
+
+        foreach (var site in borderSites)
+        {
+            var siteNeighbors = site.Neighbours;
+            foreach (var neighbor in siteNeighbors)
+            {
+                if (neighbor.X < site.X)
+                {
+                   resultSites.Add(neighbor); 
+                }
+            }
+        }
+
+        return resultSites;
+    }
+    
+    public VoronoiPoint FindRightmostVertexInSite(VoronoiSite site)
+    {
+        VoronoiPoint rightmostPoint = null;
+        foreach (var point in site.Points)
+        {
+            if (rightmostPoint == null || point.X > rightmostPoint.X)
+            {
+                rightmostPoint = point;
+            }
+        }
+        return rightmostPoint;
+    }
+
+    public VoronoiEdge FindEdgeStartingAtVertextInSite(VoronoiSite site, VoronoiPoint vertex)
+    {
+        var edges = site.Cell;
+        foreach (var edge in edges)
+        {
+            if (edge.Start == vertex) return edge;
+        }
+
+        return null;
+    }
+    
+    public List<VoronoiEdge> FindEdgePathFromStartToEndVertexInSite(VoronoiSite site, VoronoiPoint startVertex, VoronoiPoint endVertex)
+    {
+        var edgePath = new List<VoronoiEdge>();
+        var edges = site.Cell.ToList();
+        var currentVertex = startVertex;
+
+        while (currentVertex != null && currentVertex != endVertex)
+        {
+            var nextEdge = edges.FirstOrDefault(e => e.Start == currentVertex);
+            if (nextEdge == null)
+            {
+                break; // No valid next edge found
+            }
+
+            edgePath.Add(nextEdge);
+            currentVertex = nextEdge.End;
+        }
+
+        return edgePath;
+    }
+
+    // TODO: FIX
+    public List<VoronoiEdge> FindEdgePathThroughSites(List<VoronoiSite> sites)
+    {
+        var startSiteEdgeNeighbors = new List<VoronoiEdge>();
+        foreach (var site in sites)
+        {
+            foreach (var edge in site.Cell)
+            {
+                foreach (var n in edge.Neighbours)
+                {
+                    startSiteEdgeNeighbors.Add(n);
+                }
+            }
+        }
+        
+        // find edges with more than one copy in the list
+        var commonEdges = startSiteEdgeNeighbors
+            .GroupBy(e => e)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        
+        return commonEdges;
+    }
+    
     public List<VoronoiSite> FindSitePathByVectorDirection(VoronoiSite startSite, float directionX, float directionY, int maxSteps = 100)
     {
         var path = new List<VoronoiSite> { startSite };
