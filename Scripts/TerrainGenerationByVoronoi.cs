@@ -15,60 +15,119 @@ public partial class TerrainGenerationByVoronoi : Node
 
 
     private VoronoiPlane _voronoiPlane;
+    private VoronoiEdgeHelper _voronoiEdgeHelper;
+    private VoronoiSiteHelper _voronoiSiteHelper;
+    private List<VoronoiSite> _rightBorderSites;
+    private List<VoronoiSite> _leftBorderSites;
+    private List<VoronoiSite> _bottomBorderSites;
+    private List<VoronoiSite> _topBorderSites;
+    
+    private List<VoronoiSite> _largeRiverPathSites;
     
     public override void _Ready()
     {
         _voronoiPlane = new VoronoiPlane(0, 0, TileMapSize, TileMapSize);
         _voronoiPlane.GenerateRandomSites(NumberOfSites, PointGenerationMethod.Uniform);
         _voronoiPlane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-        _voronoiPlane.Relax(); // makes cells more uniform in size and shape
+        _voronoiPlane.Relax(5, 0.7f); // makes cells more uniform in size and shape
+
+        _voronoiEdgeHelper = new VoronoiEdgeHelper(_voronoiPlane);
+        _voronoiSiteHelper = new VoronoiSiteHelper(_voronoiPlane);
+
+        _rightBorderSites = _voronoiSiteHelper.FindBorderSites(_voronoiPlane.Sites, PointBorderLocation.Right);
+        _leftBorderSites = _voronoiSiteHelper.FindBorderSites(_voronoiPlane.Sites, PointBorderLocation.Left);
+        _bottomBorderSites = _voronoiSiteHelper.FindBorderSites(_voronoiPlane.Sites, PointBorderLocation.Bottom);
+        _topBorderSites = _voronoiSiteHelper.FindBorderSites(_voronoiPlane.Sites, PointBorderLocation.Top);
         
-        var voronoiSearcher = new VoronoiSearcher(_voronoiPlane);
+        DrawSitesWithRandomTypes();
+        DrawTopAndLeftWaterBodies();
+        DrawLargeRiver();
+        DrawSmallRiverBetweenCentroids();
+    }
+
+    private void DrawTopAndLeftWaterBodies()
+    {
+        ColorInVoronoiCellsOnTileMap(_leftBorderSites, TileTypes.Water, 0);
+        ColorInVoronoiCellsOnTileMap(_bottomBorderSites, TileTypes.Water, 0);
+    }
+
+    private void DrawLargeRiver()
+    {
+        var pathStartSite = _voronoiSiteHelper.FindSiteAsPercentageFromTopLeftOfPlane(0.5f, 0.0f);
+        var pathEndSite = _voronoiSiteHelper.FindRandomSiteFromList(_topBorderSites);
+        var pathSites = _voronoiSiteHelper.FindBfsSites(pathStartSite, pathEndSite);
+
+        _largeRiverPathSites = pathSites;
         
-        // DrawVoronoiEdgesOnTileMap(_voronoiPlane);
-        // DrawVoronoiSitesOnTileMap(_voronoiPlane, TileTypes.Water);
-        
-        var siteToType = AssignRandomCellTypesToSites(_voronoiPlane?.Sites);
+        ColorInVoronoiCellsOnTileMap(pathSites, TileTypes.Water, 0);
+    }
+    
+
+    private void DrawSmallRiverBetweenCentroids()
+    {
+        var startingSite = _voronoiSiteHelper.FindRandomSiteFromList(_rightBorderSites);
+        var endingSite = _voronoiSiteHelper.FindRandomSiteFromList(_largeRiverPathSites);
+        // var sitePath = _voronoiSiteHelper.FindBfsSites(startingSite, endingSite);
+        var sitePath = _voronoiSiteHelper.FindSitePathByVectorDirection(startingSite, -1f, 0f, 100);
+        for (int i = 0; i < sitePath.Count - 1; i++)
+        {
+            var line = PointHelper.GetPointsInLineBetweenVoronoiPoints(sitePath[i].Centroid, sitePath[i + 1].Centroid);
+            foreach (var point in line)
+            {
+                var gridPosition = NormalizeToTileMapCoordinates(point);
+                TileMapLayer.SetCell(gridPosition, 0, TileAtlasPositionByType(TileTypes.Water, 0));
+            }
+        }
+    }
+    
+    private void DrawSitesWithRandomTypes()
+    {
+        var siteToType = AssignRandomCellTypesToSites(_voronoiPlane.Sites);
         foreach (var kvp in siteToType)
         {
             var site = kvp.Key;
             var cellType = kvp.Value;
-            var tileType = cellType switch
+            TileTypes tileType;
+            int darknessLevel = (int)GD.RandRange(0, 3);
+            switch (cellType)
             {
-                CellTypes.Water => TileTypes.Water,
-                CellTypes.Grassland => TileTypes.Grass,
-                CellTypes.Forest => TileTypes.Grass,
-                _ => TileTypes.Grass
-            };
-            
-            var randomDarknessLevel = (int)GD.RandRange(0, 3);
-            
-            GD.Print($"Drawing cell at ({site.X}, {site.Y})");
-            ColorInVoronoiCellOnTileMap(site, tileType, randomDarknessLevel);
+                case CellTypes.Grassland:
+                    tileType = TileTypes.Grass;
+                    break;
+                case CellTypes.Forest:
+                    tileType = TileTypes.Grass;
+                    break;
+                default:
+                    tileType = TileTypes.Grass;
+                    break;
+            }
+            ColorInVoronoiCellOnTileMap(site, tileType, darknessLevel);
         }
+    }
+    
+    private void DrawTilesWithRandomTypes()
+    {
+        if (TileMapLayer == null) throw new InvalidOperationException("TileMapLayer is not set.");
         
-        var topBorderSites = GetBorderSites(_voronoiPlane?.Sites, PointBorderLocation.Top);
-        var bottomBorderSites = GetBorderSites(_voronoiPlane?.Sites, PointBorderLocation.Bottom);
-        var leftBorderSites = GetBorderSites(_voronoiPlane?.Sites, PointBorderLocation.Left);
-        var rightBorderSites = GetBorderSites(_voronoiPlane?.Sites, PointBorderLocation.Right);
-        
-        var pathStartSite = GetRandomSiteFromList(topBorderSites);
-        var pathEndSite = GetRandomSiteFromList(bottomBorderSites);
-        var pathSites = voronoiSearcher.GetBreadthFirstSearchPath(pathStartSite, pathEndSite);
-        
-        ColorInVoronoiCellsOnTileMap(leftBorderSites, TileTypes.Water, 0);
-        ColorInVoronoiCellsOnTileMap(bottomBorderSites, TileTypes.Water, 0);
-        // ColorInVoronoiCellsOnTileMap(topBorderSites, TileTypes.Water, 0);
-        // ColorInVoronoiCellsOnTileMap(rightBorderSites, TileTypes.Water, 0);
-        ColorInVoronoiCellsOnTileMap(pathSites, TileTypes.Water, 0);
-
-        var pathStartEdge = GetRandomEdgeFromList(GetRandomSiteFromList(rightBorderSites).Cell.ToList());
-        var pathEndEdge = GetRandomEdgeFromList(GetRandomSiteFromList(leftBorderSites).Cell.ToList());
-        
-        var pathEdges = voronoiSearcher.FindEdgePathBetweenTwoEdges(pathStartEdge, pathEndEdge);
-        foreach (var edge in pathEdges)
+        for (var x = 0; x < TileMapSize; x++)
         {
-            DrawEdgeLineOnTileMap(edge, TileTypes.Water);
+            for (var y = 0; y < TileMapSize; y++)
+            {
+                var randomValue = GD.Randf();
+                TileTypes tileType;
+                int darknessLevel = (int)GD.RandRange(0, 3);
+                if (randomValue < 0.3f)
+                {
+                    tileType = TileTypes.Water;
+                }
+                else
+                {
+                    tileType = TileTypes.Grass;
+                }
+                
+                Vector2I gridPosition = new Vector2I(x, y);
+                TileMapLayer.SetCell(gridPosition, 0, TileAtlasPositionByType(tileType, darknessLevel));
+            }
         }
     }
     
@@ -143,43 +202,6 @@ public partial class TerrainGenerationByVoronoi : Node
             }
         }
     }
-
-    private List<VoronoiSite> GetBorderSites(List<VoronoiSite> sites, PointBorderLocation borderLocation)
-    {
-        var borderSites = new List<VoronoiSite>();
-        foreach (var site in sites)
-        {
-            var points = site.Points;
-            foreach (var point in points)
-            {
-                if (point.BorderLocation == borderLocation)
-                {
-                    borderSites.Add(site);
-                }
-            }
-        }
-        
-        return borderSites;
-    }
-
-    private VoronoiSite GetRandomSiteFromList(List<VoronoiSite> voronoiSites)
-    {
-        var randomIndex = GD.RandRange(0, voronoiSites.Count - 1);
-        return voronoiSites[randomIndex];
-    }
-    
-    private VoronoiEdge GetRandomEdgeFromSite(VoronoiSite site)
-    {
-        var edges = site.Cell.ToList();
-        var randomIndex = GD.RandRange(0, edges.Count - 1);
-        return edges[randomIndex];
-    }
-
-    private VoronoiEdge GetRandomEdgeFromList(List<VoronoiEdge> voronoiEdges)
-    {
-        var randomIndex = GD.RandRange(0, voronoiEdges.Count - 1);
-        return voronoiEdges[randomIndex];
-    }
     
     private void DrawVoronoiSitesOnTileMap(VoronoiPlane voronoiPlane, TileTypes tileType = TileTypes.Grass)
     {
@@ -194,61 +216,17 @@ public partial class TerrainGenerationByVoronoi : Node
         }
     }
     
-    private void DrawVoronoiEdgesOnTileMap(VoronoiPlane voronoiPlane, TileTypes tileType = TileTypes.Grass)
-    {
-        if (voronoiPlane == null) throw new ArgumentNullException(nameof(voronoiPlane));
-        if (TileMapLayer == null) throw new InvalidOperationException("TileMapLayer is not set.");
-        
-        var edges = voronoiPlane.Tessellate(BorderEdgeGeneration.MakeBorderEdges);
-        foreach (var edge in edges)
-        {
-            DrawEdgeLineOnTileMap(edge);
-        }
-    }
-
-    private void DrawEdgeLineOnTileMap(VoronoiEdge edge, TileTypes tileType = TileTypes.Grass)
+    public void DrawLineOnTileMap(Vector2I start, Vector2I end, TileTypes tileType = TileTypes.Water)
     {
         if (TileMapLayer == null) throw new InvalidOperationException("TileMapLayer is not set.");
         
-        // Get start and end coordinates of the edge
-        int x0 = (int)edge.Start.X;
-        int y0 = (int)edge.Start.Y;
-        int x1 = (int)edge.End.X;
-        int y1 = (int)edge.End.Y;
-
-        // Calculate differences and step directions
-        int dx = Math.Abs(x1 - x0);
-        int dy = Math.Abs(y1 - y0);
-        int sx = x0 < x1 ? 1 : -1; // Step direction for x
-        int sy = y0 < y1 ? 1 : -1; // Step direction for y
-        int err = dx - dy;         // Error term for Bresenham's algorithm
-
-        // Loop to draw the line from (x0, y0) to (x1, y1)
-        while (true)
+        var points = PointHelper.GetPointsInLineBetweenIntVectors(start, end);
+        foreach (var point in points)
         {
-            // Set the tile at the current position
-            Vector2I gridPosition = new Vector2I(x0, y0);
-            TileMapLayer.SetCell(gridPosition, 0, TileAtlasPositionByType(tileType, 0));
-
-            // Break if the end point is reached
-            if (x0 == x1 && y0 == y1) break;
-
-            int err2 = err * 2;
-            // Adjust error and position for x
-            if (err2 > -dy)
-            {
-                err -= dy;
-                x0 += sx;
-            }
-            // Adjust error and position for y
-            if (err2 < dx)
-            {
-                err += dx;
-                y0 += sy;
-            }
+            TileMapLayer.SetCell(point, 0, TileAtlasPositionByType(tileType, 0));
         }
     }
-    
+
     private Vector2I TileAtlasPositionByType(TileTypes tileType, int darknessLevel)
     {
         switch (tileType)
